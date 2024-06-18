@@ -27,7 +27,7 @@ class Graph:
         self.vertices.add(u)
         self.vertices.add(v)
 
-    def dijkstra(self, start):
+    def dijkstra(self, start, end=None):
         min_heap = [(0, start)]
         distances = {v: float('inf') for v in self.vertices}
         distances[start] = 0
@@ -35,6 +35,8 @@ class Graph:
         steps = []
         while min_heap:
             current_distance, current_vertex = heapq.heappop(min_heap)
+            if end and current_vertex == end:
+                break
             if current_distance > distances[current_vertex]:
                 continue
             steps.append((current_vertex, list(distances.items()), previous.copy()))
@@ -85,6 +87,11 @@ class DijkstraApp:
         self.start_entry = ttk.Entry(self.root)
         self.start_entry.pack(pady=5)
 
+        self.end_label = ttk.Label(self.root, text="Seleccione el vértice final (opcional):")
+        self.end_label.pack(pady=5)
+        self.end_entry = ttk.Entry(self.root)
+        self.end_entry.pack(pady=5)
+
         self.solve_button = ttk.Button(self.root, text="Resolver", command=self.solve)
         self.solve_button.pack(pady=5)
 
@@ -112,19 +119,27 @@ class DijkstraApp:
 
     def solve(self):
         start = self.start_entry.get()
+        end = self.end_entry.get()
         if start not in self.graph.vertices:
             messagebox.showerror("Error", "El vértice inicial no existe en el grafo.")
             return
+        if end and end not in self.graph.vertices:
+            messagebox.showerror("Error", "El vértice final no existe en el grafo.")
+            return
         
-        distances, previous, steps = self.graph.dijkstra(start)
+        distances, previous, steps = self.graph.dijkstra(start, end if end else None)
         
         self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(tk.END, "Distancias mínimas desde el vértice inicial:\n")
-        for v, distance in distances.items():
-            self.result_text.insert(tk.END, f"{v}: {distance}\n")
+        if end:
+            self.result_text.insert(tk.END, f"Distancia mínima desde {start} hasta {end}:\n")
+            self.result_text.insert(tk.END, f"{distances[end]}\n")
+        else:
+            self.result_text.insert(tk.END, f"Distancias mínimas desde el vértice inicial {start}:\n")
+            for v, distance in distances.items():
+                self.result_text.insert(tk.END, f"{v}: {distance}\n")
 
         self.show_graph(initial=True)
-        self.show_steps(steps)
+        self.show_steps(steps, start, end if end else None)
 
     def show_graph(self, initial=True):
         G = nx.Graph()
@@ -149,7 +164,7 @@ class DijkstraApp:
         plt.title(title)
         plt.show()
 
-    def show_steps(self, steps):
+    def show_steps(self, steps, start, end=None):
         G = nx.Graph()
         for u in self.graph.edges:
             for weight, v in self.graph.edges[u]:
@@ -166,8 +181,24 @@ class DijkstraApp:
             plt.title(f"Paso {i + 1} - Vértice Actual: {current_vertex}")
             plt.show()
 
+        # Highlight the shortest path if end is specified
+        if end:
+            path = []
+            while end:
+                path.append(end)
+                end = previous[end]
+            path.reverse()
+            
+            plt.figure(figsize=(10, 7))
+            nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500, font_size=10, font_weight='bold')
+            labels = nx.get_edge_attributes(G, 'weight')
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+            nx.draw_networkx_edges(G, pos, edgelist=list(zip(path, path[1:])), edge_color='r', width=2)
+            nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='orange', node_size=700)
+            plt.title("Ruta más corta")
+            plt.show()
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = DijkstraApp(root)
     root.mainloop()
-
